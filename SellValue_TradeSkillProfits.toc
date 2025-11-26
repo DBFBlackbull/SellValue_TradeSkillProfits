@@ -1,0 +1,9 @@
+## Interface: 11200
+## Title: SellValue_TradeSkillProfits
+## Notes: Display the profit of an item in the trade skill window
+## Author: DBFBlackbull
+## LoadOnDemand: 0
+## SavedVariables: SellValue_TradeSkillProfits
+## RequiredDeps: SellValue
+SellValue_TradeSkillProfits.lua
+Database.lua
