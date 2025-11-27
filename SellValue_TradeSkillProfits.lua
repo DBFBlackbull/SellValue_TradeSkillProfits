@@ -13,14 +13,16 @@ local function hooksecurefunc(arg1, arg2, arg3)
 	end
 end
 
+local COPPER_PER_SILVER = 100
+local COPPER_PER_GOLD = 10000
+local GOLD_COLOR_CODE = "|cffffd100"
+local SILVER_COLOR_CODE = "|cffe6e6e6"
+local COPPER_COLOR_CODE = "|cffc8602c"
+
 SellValue_TSP = CreateFrame("Frame")
 function SellValue_TSP:Print(string)
 	-- color maybe #FFD700
-	DEFAULT_CHAT_FRAME:AddMessage("[SellValue_TSP]: " .. tostring(string))
-end
-
-function SellValue_TSP:OnAddonLoaded()
-	SellValue_TSP:InitializeDB()
+	DEFAULT_CHAT_FRAME:AddMessage(GOLD_COLOR_CODE.."[SellValue_TSP]: ".. FONT_COLOR_CODE_CLOSE .. tostring(string))
 end
 
 function SellValue_TSP:OnAddonLoaded()
@@ -31,21 +33,64 @@ function SellValue_TSP:OnAddonLoaded()
 	self:HookTooltip()
 end
 
-local function colorString(money)
+local function moneyToGsc(money)
+	local gold = math.floor(math.abs(money) / COPPER_PER_GOLD)
+	local silver = math.floor(math.mod(math.abs(money), COPPER_PER_GOLD) / COPPER_PER_SILVER)
+	local copper = math.mod(math.abs(money), COPPER_PER_SILVER)
+	return gold, silver, copper
+end
+
+local function moneyToString(money, showSign)
+	local g, s, c = moneyToGsc(money)
+
+	local str = ""
+	if g > 0 then
+		str = str .. string.format("%s%d%sg", HIGHLIGHT_FONT_COLOR_CODE, g, GOLD_COLOR_CODE)
+	end
+	if s > 0 then
+		str = str .. string.format("%s%d%ss", HIGHLIGHT_FONT_COLOR_CODE, s, SILVER_COLOR_CODE)
+	end
+	if c > 0 then
+		str = str .. string.format("%s%d%sc", HIGHLIGHT_FONT_COLOR_CODE, c, COPPER_COLOR_CODE)
+	end
+
+	if showSign then
+		if money > 0 then
+			str = "+"..str
+		else
+			str = "-"..str
+		end
+	end
+
+	return str
+end
+
+function SellValue_TSP:SetTooltipVendorPrice(tooltip, low, high)
+	local vendorPrice = RED_FONT_COLOR_CODE .. "Vendor Price" .. FONT_COLOR_CODE_CLOSE
+
+	local line = moneyToString(low)
+	if low ~= high then
+		line = line .. " — " .. moneyToString(high)
+	end
+
+	tooltip:AddLine(string.format("%s: %s", vendorPrice, line))
+	tooltip:Show()
+end
+
+function SellValue_TSP:SetTooltipProfit(tooltip, low, high)
 	local color = GREEN_FONT_COLOR_CODE
-	if money < 0 then
+	if low < 0 then
 		color = RED_FONT_COLOR_CODE
 	end
 
-	return color .. money .. FONT_COLOR_CODE_CLOSE
-end
+	local vendorProfit = color .. "Vendor Profit" .. FONT_COLOR_CODE_CLOSE
 
-function SellValue_TSP:SetTooltip(tooltip, label, low, high)
-	local line = colorString(low)
+	local line = moneyToString(low, true) .. FONT_COLOR_CODE_CLOSE
 	if low ~= high then
-		line = line .. " - " .. colorString(high)
+		line = line .. " — " .. moneyToString(high, true)
 	end
-	tooltip:AddLine(format("%s: %s", label, line))
+
+	tooltip:AddLine(string.format("%s: %s", vendorProfit, line))
 	tooltip:Show()
 end
 
@@ -57,8 +102,6 @@ local function contains(t, value)
 	end
 	return false
 end
-
-
 
 function SellValue_TSP:InitializeProfits(craftedItemID)
 	if not SellValue_TradeSkillProfits.CraftedItems[craftedItemID] then
@@ -74,6 +117,8 @@ function SellValue_TSP:ResetProfits(craftedItemID)
 end
 
 function SellValue_TSP:SaveProfits(craftedItemID, profitMin, profitMax)
+	self:InitializeProfits(craftedItemID)
+
 	local updated = false
 	if not contains(SellValue_TradeSkillProfits.CraftedItems[craftedItemID].Profits, profitMin) then
 		table.insert(SellValue_TradeSkillProfits.CraftedItems[craftedItemID].Profits, profitMin)
@@ -96,12 +141,22 @@ function SellValue_TSP:HookTooltip()
 		-- mousing over a reagent. Maybe should be optional
 		if reagentIndex then
 			local reagentItemID = SellValue_ItemIDFromLink(GetTradeSkillReagentItemLink(tradeItemIndex, reagentIndex))
-			local _, _, reagentCount = GetTradeSkillReagentInfo(tradeItemIndex, i)
-			local vendorItem = SellValue_TradeSkillProfits.VendorItems[reagentItemID]
-			if vendorItem.BuyPrice then
-				local minCost = math.min(unpack(vendorItem.BuyPrice))
-				local maxCost = math.max(unpack(vendorItem.BuyPrice))
-				self:SetTooltip(GameTooltip, "Vendor Price", minCost * reagentCount, maxCost * reagentCount)
+			local _, _, reagentCount = GetTradeSkillReagentInfo(tradeItemIndex, reagentIndex)
+			local vendorPrices = SellValue_TradeSkillProfits.VendorPrices[reagentItemID]
+
+			if vendorPrices and table.getn(vendorPrices) > 0 then
+				local minCost = math.min(unpack(vendorPrices))
+				local maxCost = math.max(unpack(vendorPrices))
+				return self:SetTooltipVendorPrice(GameTooltip, minCost * reagentCount, maxCost * reagentCount)
+			end
+
+			local craftedReagent = SellValue_TradeSkillProfits.CraftedItems[reagentItemID]
+			if craftedReagent then
+				local minProfit = math.min(unpack(craftedReagent.Profits))
+				local maxProfit = math.max(unpack(craftedReagent.Profits))
+				if minProfit < 0 and maxProfit < 0 then
+					return self:SetTooltipProfit(GameTooltip, minProfit * reagentCount, maxProfit * reagentCount)
+				end
 			end
 
 			return
@@ -109,7 +164,6 @@ function SellValue_TSP:HookTooltip()
 
 		-- the crafted item. Calculate profit
 		local craftedItemID = SellValue_ItemIDFromLink(GetTradeSkillItemLink(tradeItemIndex))
-		self:InitializeProfits(craftedItemID)
 		local craftedItemCount = GetTradeSkillNumMade(tradeItemIndex)
 
 		local craftedItemValue = SellValues[craftedItemID] or 0
@@ -122,18 +176,17 @@ function SellValue_TSP:HookTooltip()
 			local reagentVendorValue = SellValues[reagentItemID] or 0
 			local reagentValueMin, reagentValueMax = 0, 0
 
-			local vendorItem = SellValue_TradeSkillProfits.VendorItems[reagentItemID]
-			if vendorItem then -- if it is a vendor item a price must be found
-				if #vendorItem.BuyPrice == 0 then -- Might not work. Use table.getn() as fallback
-					return self:Print(format("No vendor prices recorded for %d - %s", reagentItemID, reagentName))
+			local vendorPrices = SellValue_TradeSkillProfits.VendorPrices[reagentItemID]
+			if vendorPrices then -- if it is a vendor item a price must be found
+				if table.getn(vendorPrices) == 0 then
+					return self:Print("Missing vendor buy price for "..reagentName..". Please visit a vendor")
 				end
-
-				reagentValueMin = math.min(unpack(vendorItem.BuyPrice))
-				reagentValueMax = math.max(unpack(vendorItem.BuyPrice))
+				reagentValueMin = math.min(unpack(vendorPrices))
+				reagentValueMax = math.max(unpack(vendorPrices))
 			elseif SellValue_TradeSkillProfits.CraftedItems[reagentItemID] then
 				local craftedReagent = SellValue_TradeSkillProfits.CraftedItems[reagentItemID]
 				local craftedItem = SellValue_TradeSkillProfits.CraftedItems[craftedItemID]
-				if craftedItem.LastUpdated < craftedReagent.LastUpdated then
+				if craftedItem and craftedItem.LastUpdated < craftedReagent.LastUpdated then
 					self:ResetProfits(craftedItemID)
 				end
 
@@ -158,7 +211,7 @@ function SellValue_TSP:HookTooltip()
 		local profitMax = craftValue - totalReagentValueMin
 
 		self:SaveProfits(craftedItemID, profitMin, profitMax)
-		self:SetTooltip(GameTooltip, "Vendor Profit", profitMin, profitMax)
+		self:SetTooltipProfit(GameTooltip, profitMin, profitMax)
 	end)
 
 	-- Simple update for vendor items prices on mouse over
@@ -166,14 +219,14 @@ function SellValue_TSP:HookTooltip()
 		local itemID = SellValue_ItemIDFromLink(GetMerchantItemLink(index))
 		local _, _, price, stackCount = GetMerchantItemInfo(index)
 		if itemID and price and price > 0 and stackCount and stackCount > 0 then
-			if not SellValue_TradeSkillProfits.VendorItems[itemID] then
+			if not SellValue_TradeSkillProfits.VendorPrices[itemID] then
 				return
 			end
 
 			local pricePerItem = price / stackCount
-			if not contains(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrice, pricePerItem) then
-				table.insert(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrice, pricePerItem)
-				table.sort(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrice)
+			if not contains(SellValue_TradeSkillProfits.VendorPrices[itemID], pricePerItem) then
+				table.insert(SellValue_TradeSkillProfits.VendorPrices[itemID], pricePerItem)
+				table.sort(SellValue_TradeSkillProfits.VendorPrices[itemID])
 			end
 		end
 	end)
@@ -188,7 +241,7 @@ function SellValue_TSP:HookTooltip()
 end
 
 function SellValue_TSP:OnEvent()
-	if event == "ADDON_LOADED" and arg1 == "SellValue" then
+	if event == "ADDON_LOADED" and arg1 == "SellValue_TradeSkillProfits" then
 		return SellValue_TSP:OnAddonLoaded()
 	end
 

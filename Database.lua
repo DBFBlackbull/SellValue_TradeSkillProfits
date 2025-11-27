@@ -1,8 +1,8 @@
 function SellValue_TSP:InitializeDB()
 	-- Checking last added item to update the database
-	if not SellValue_TradeSkillProfits then
+	if not SellValue_TradeSkillProfits or not SellValue_TradeSkillProfits.VendorPrices or not SellValue_TradeSkillProfits.CraftedItems then
 		SellValue_TradeSkillProfits = {
-			VendorItems = {
+			VendorPrices = {
 				-- Threads
 				[2320]  = {}, -- Coarse Thread
 				[2321]  = {}, -- Fine Thread
