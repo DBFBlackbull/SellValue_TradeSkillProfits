@@ -4,39 +4,46 @@ function SellValue_TSP:InitializeDB()
 		SellValue_TradeSkillProfits = {
 			VendorItems = {
 				-- Threads
-				[2320]  = 0, -- "Coarse Thread",
-				[2321]  = 0, -- "Fine Thread",
-				[4291]  = 0, -- "Silken Thread",
-				[8343]  = 0, -- "Heavy Silken Thread",
-				[14341] = 0, -- "Rune Thread",
+				[2320]  = {}, -- Coarse Thread
+				[2321]  = {}, -- Fine Thread
+				[4291]  = {}, -- Silken Thread
+				[8343]  = {}, -- Heavy Silken Thread
+				[14341] = {}, -- Rune Thread
 				-- Dyes
-				[2324]  = 0, -- "Bleach",
-				[2325]  = 0, -- "Black Dye",
-				[2604]  = 0, -- "Red Dye",
-				[2605]  = 0, -- "Green Dye",
-				[4340]  = 0, -- "Gray Dye",
-				[4341]  = 0, -- "Yellow Dye",
-				[4342]  = 0, -- "Purple Dye",
-				[6260]  = 0, -- "Blue Dye",
-				[6261]  = 0, -- "Orange Dye",
-				[10290] = 0, -- "Pink Dye",
+				[2324]  = {}, -- Bleach
+				[2325]  = {}, -- Black Dye
+				[2604]  = {}, -- Red Dye
+				[2605]  = {}, -- Green Dye
+				[4340]  = {}, -- Gray Dye
+				[4341]  = {}, -- Yellow Dye
+				[4342]  = {}, -- Purple Dye
+				[6260]  = {}, -- Blue Dye
+				[6261]  = {}, -- Orange Dye
+				[10290] = {}, -- Pink Dye
 				-- Leatherworking
-				[4289] = 0, -- "Salt",
+				[4289] = {}, -- Salt,
 				-- Alchemy
-				[3371]  = 0, -- "Empty Vial",
-				[3372]  = 0, -- "Leaded Vial",
-				[8925]  = 0, -- "Crystal Vial",
-				[18256] = 0, -- "Imbued Vial",
+				[3371]  = {}, -- Empty Vial
+				[3372]  = {}, -- Leaded Vial
+				[8925]  = {}, -- Crystal Vial
+				[18256] = {}, -- Imbued Vial
 				-- Blacksmithing / Smelting
-				[2880]  = 0, -- "Weak Flux",
-				[3466]  = 0, -- "Strong Flux",
-				[3857]  = 0, -- "Coal Flux",
-				[18567] = 0, -- "Elemental Flux",
+				[2880]  = {}, -- Weak Flux
+				[3466]  = {}, -- Strong Flux
+				[3857]  = {}, -- Coal Flux
+				[18567] = {}, -- Elemental Flux
 				-- Engineering
-				[4399] = 0, -- "Wooden Stock",
-				[4400] = 0, -- "Heavy Stock",
-				[10647] = 0, -- "Engineer's Ink",
-				[10648] = 0, -- "Blank Parchment",
+				[4399] = {}, -- Wooden Stock
+				[4400] = {}, -- Heavy Stock
+				[10647] = {}, -- Engineer's Ink
+				[10648] = {}, -- Blank Parchment
+				-- Cooking
+				[2678] = {}, -- Mild Spices
+				[2692] = {}, -- Hot Spices
+				[3713] = {}, -- Soothing Spices
+				[159] = {}, -- Refreshing Spring Water
+				[1179] = {}, -- Ice Cold Milk
+				[4536] = {}, -- Shiny Red Apple
 			},
 			Profits = {}
 		}
