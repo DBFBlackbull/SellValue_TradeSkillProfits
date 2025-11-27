@@ -37,7 +37,7 @@ function SellValue_TSP:SetTooltip(tooltip, profitLow, profitHigh)
 	end
 
 	local profitLowString = colorProfit(profitLow)
-	local line = format("Vendor Profit: %s", profitLowString)
+	local line = "Vendor Profit: " .. profitLowString
 	if profitHigh ~= profitLow then
 		local profitHighString = colorProfit(profitHigh)
 		line = line .. " - " .. profitHighString
