@@ -1,6 +1,6 @@
 function SellValue_TSP:InitializeDB()
 	-- Checking last added item to update the database
-	if not SellValue_TradeSkillProfits or not SellValue_TradeSkillProfits.VendorItems or not SellValue_TradeSkillProfits.Profits then
+	if not SellValue_TradeSkillProfits then
 		SellValue_TradeSkillProfits = {
 			VendorItems = {
 				-- Threads
@@ -33,19 +33,19 @@ function SellValue_TSP:InitializeDB()
 				[3857]  = {}, -- Coal Flux
 				[18567] = {}, -- Elemental Flux
 				-- Engineering
-				[4399] = {}, -- Wooden Stock
-				[4400] = {}, -- Heavy Stock
+				[4399]  = {}, -- Wooden Stock
+				[4400]  = {}, -- Heavy Stock
 				[10647] = {}, -- Engineer's Ink
 				[10648] = {}, -- Blank Parchment
 				-- Cooking
 				[2678] = {}, -- Mild Spices
 				[2692] = {}, -- Hot Spices
 				[3713] = {}, -- Soothing Spices
-				[159] = {}, -- Refreshing Spring Water
+				[159]  = {}, -- Refreshing Spring Water
 				[1179] = {}, -- Ice Cold Milk
 				[4536] = {}, -- Shiny Red Apple
 			},
-			Profits = {}
+			CraftedItems = {}
 		}
 	end
 end

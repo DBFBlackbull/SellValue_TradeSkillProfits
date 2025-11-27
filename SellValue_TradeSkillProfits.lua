@@ -14,6 +14,11 @@ local function hooksecurefunc(arg1, arg2, arg3)
 end
 
 SellValue_TSP = CreateFrame("Frame")
+function SellValue_TSP:Print(string)
+	-- color maybe #FFD700
+	DEFAULT_CHAT_FRAME:AddMessage("[SellValue_TSP]: " .. tostring(string))
+end
+
 function SellValue_TSP:OnAddonLoaded()
 	SellValue_TSP:InitializeDB()
 end
@@ -26,24 +31,21 @@ function SellValue_TSP:OnAddonLoaded()
 	self:HookTooltip()
 end
 
-function SellValue_TSP:SetTooltip(tooltip, profitLow, profitHigh)
-	local function colorProfit(profit)
-		local color = GREEN_FONT_COLOR_CODE
-		if profit < 0 then
-			color = RED_FONT_COLOR_CODE
-		end
-
-		return color .. profit .. FONT_COLOR_CODE_CLOSE
+local function colorString(money)
+	local color = GREEN_FONT_COLOR_CODE
+	if money < 0 then
+		color = RED_FONT_COLOR_CODE
 	end
 
-	local profitLowString = colorProfit(profitLow)
-	local line = "Vendor Profit: " .. profitLowString
-	if profitHigh ~= profitLow then
-		local profitHighString = colorProfit(profitHigh)
-		line = line .. " - " .. profitHighString
-	end
+	return color .. money .. FONT_COLOR_CODE_CLOSE
+end
 
-	tooltip:AddLine(line)
+function SellValue_TSP:SetTooltip(tooltip, label, low, high)
+	local line = colorString(low)
+	if low ~= high then
+		line = line .. " - " .. colorString(high)
+	end
+	tooltip:AddLine(format("%s: %s", label, line))
 	tooltip:Show()
 end
 
@@ -56,60 +58,107 @@ local function contains(t, value)
 	return false
 end
 
+
+
+function SellValue_TSP:InitializeProfits(craftedItemID)
+	if not SellValue_TradeSkillProfits.CraftedItems[craftedItemID] then
+		self:ResetProfits(craftedItemID)
+	end
+end
+
+function SellValue_TSP:ResetProfits(craftedItemID)
+	SellValue_TradeSkillProfits.CraftedItems[craftedItemID] = {
+		Profits = {},
+		LastUpdated = time()
+	}
+end
+
 function SellValue_TSP:SaveProfits(craftedItemID, profitMin, profitMax)
-	if not SellValue_TradeSkillProfits.Profits[craftedItemID] then
-		SellValue_TradeSkillProfits.Profits[craftedItemID] = {}
+	local updated = false
+	if not contains(SellValue_TradeSkillProfits.CraftedItems[craftedItemID].Profits, profitMin) then
+		table.insert(SellValue_TradeSkillProfits.CraftedItems[craftedItemID].Profits, profitMin)
+		updated = true
+	end
+	if not contains(SellValue_TradeSkillProfits.CraftedItems[craftedItemID].Profits, profitMax) then
+		table.insert(SellValue_TradeSkillProfits.CraftedItems[craftedItemID].Profits, profitMax)
+		updated = true
 	end
 
-	if not contains(SellValue_TradeSkillProfits.Profits[craftedItemID], profitMin) then
-		table.insert(SellValue_TradeSkillProfits.Profits[craftedItemID], profitMin)
-	end
-	if not contains(SellValue_TradeSkillProfits.Profits[craftedItemID], profitMax) then
-		table.insert(SellValue_TradeSkillProfits.Profits[craftedItemID], profitMax)
+	if updated then
+		table.sort(SellValue_TradeSkillProfits.CraftedItems[craftedItemID].Profits)
+		SellValue_TradeSkillProfits.CraftedItems[craftedItemID].LastUpdated = time()
 	end
 end
 
 function SellValue_TSP:HookTooltip()
 	-- Hook trade skill tooltip
 	hooksecurefunc(GameTooltip, "SetTradeSkillItem", function(tip, tradeItemIndex, reagentIndex)
-		-- mousing over a reagent
+		-- mousing over a reagent. Maybe should be optional
 		if reagentIndex then
+			local reagentItemID = SellValue_ItemIDFromLink(GetTradeSkillReagentItemLink(tradeItemIndex, reagentIndex))
+			local _, _, reagentCount = GetTradeSkillReagentInfo(tradeItemIndex, i)
+			local vendorItem = SellValue_TradeSkillProfits.VendorItems[reagentItemID]
+			if vendorItem.BuyPrice then
+				local minCost = math.min(unpack(vendorItem.BuyPrice))
+				local maxCost = math.max(unpack(vendorItem.BuyPrice))
+				self:SetTooltip(GameTooltip, "Vendor Price", minCost * reagentCount, maxCost * reagentCount)
+			end
+
 			return
 		end
 
 		-- the crafted item. Calculate profit
 		local craftedItemID = SellValue_ItemIDFromLink(GetTradeSkillItemLink(tradeItemIndex))
+		self:InitializeProfits(craftedItemID)
 		local craftedItemCount = GetTradeSkillNumMade(tradeItemIndex)
 
 		local craftedItemValue = SellValues[craftedItemID] or 0
 		local craftValue = craftedItemValue * craftedItemCount
 
-		local totalReagentValueMin, totalReagentValueMax = 0
+		local totalReagentValueMin, totalReagentValueMax = 0, 0
 		for i = 1, GetTradeSkillNumReagents(tradeItemIndex) do
 			local reagentItemID = SellValue_ItemIDFromLink(GetTradeSkillReagentItemLink(tradeItemIndex, i))
-			local _, _, reagentCount = GetTradeSkillReagentInfo(tradeItemIndex, i)
+			local reagentName, _, reagentCount = GetTradeSkillReagentInfo(tradeItemIndex, i)
+			local reagentVendorValue = SellValues[reagentItemID] or 0
+			local reagentValueMin, reagentValueMax = 0, 0
 
-			local vendorCost = SellValue_TradeSkillProfits.VendorItems[reagentItemID]
-			if vendorCost and #vendorCost > 0 then -- # might not work. chat GPT says it does for true arrays. Else use table.getn(vendorCost)
-				local minCost = math.min(unpack(vendorCost))
-				local maxCost = math.max(unpack(vendorCost))
+			local vendorItem = SellValue_TradeSkillProfits.VendorItems[reagentItemID]
+			if vendorItem then -- if it is a vendor item a price must be found
+				if #vendorItem.BuyPrice == 0 then -- Might not work. Use table.getn() as fallback
+					return self:Print(format("No vendor prices recorded for %d - %s", reagentItemID, reagentName))
+				end
 
-				totalReagentValueMin = totalReagentValueMin + (minCost * reagentCount)
-				totalReagentValueMax = totalReagentValueMax + (maxCost * reagentCount)
+				reagentValueMin = math.min(unpack(vendorItem.BuyPrice))
+				reagentValueMax = math.max(unpack(vendorItem.BuyPrice))
+			elseif SellValue_TradeSkillProfits.CraftedItems[reagentItemID] then
+				local craftedReagent = SellValue_TradeSkillProfits.CraftedItems[reagentItemID]
+				local craftedItem = SellValue_TradeSkillProfits.CraftedItems[craftedItemID]
+				if craftedItem.LastUpdated < craftedReagent.LastUpdated then
+					self:ResetProfits(craftedItemID)
+				end
+
+				local minProfit = math.min(unpack(craftedReagent.Profits))
+				local maxProfit = math.max(unpack(craftedReagent.Profits))
+
+				-- Crafted item only has to compensate for negative profits
+				-- Positive profits do not add extra profit
+				-- It is assumed that the crafting of the reagent is sensical
+				reagentValueMin = minProfit > 0 and reagentVendorValue or reagentVendorValue + math.abs(minProfit)
+				reagentValueMax = maxProfit > 0 and reagentVendorValue or reagentVendorValue + math.abs(maxProfit)
 			else
-				local reagentItemValue = SellValues[reagentItemID] or 0
-				local reagentValue = reagentItemValue * reagentCount
-
-				totalReagentValueMin = totalReagentValueMin + reagentValue
-				totalReagentValueMax = totalReagentValueMax + reagentValue
+				reagentValueMin = reagentVendorValue
+				reagentValueMax = reagentVendorValue
 			end
+
+			totalReagentValueMin = totalReagentValueMin + (reagentValueMin * reagentCount)
+			totalReagentValueMax = totalReagentValueMax + (reagentValueMax * reagentCount)
 		end
 
 		local profitMin = craftValue - totalReagentValueMax
 		local profitMax = craftValue - totalReagentValueMin
 
-		SellValue_TSP:SaveProfits(craftedItemID, profitMin, profitMax)
-		SellValue_TSP:SetTooltip(GameTooltip, profitMin, profitMax)
+		self:SaveProfits(craftedItemID, profitMin, profitMax)
+		self:SetTooltip(GameTooltip, "Vendor Profit", profitMin, profitMax)
 	end)
 
 	-- Simple update for vendor items prices on mouse over
@@ -122,9 +171,9 @@ function SellValue_TSP:HookTooltip()
 			end
 
 			local pricePerItem = price / stackCount
-			if not contains(SellValue_TradeSkillProfits.VendorItems[itemID], pricePerItem) then
-				table.insert(SellValue_TradeSkillProfits.VendorItems[itemID], pricePerItem)
-				table.sort(SellValue_TradeSkillProfits.VendorItems[itemID])
+			if not contains(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrice, pricePerItem) then
+				table.insert(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrice, pricePerItem)
+				table.sort(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrice)
 			end
 		end
 	end)
