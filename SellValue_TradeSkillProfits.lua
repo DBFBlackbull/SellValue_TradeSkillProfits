@@ -274,15 +274,13 @@ end
 function SellValue_TSP:MerchantShow()
 	for i = 1, GetMerchantNumItems() do
 		local itemID = SellValue_ItemIDFromLink(GetMerchantItemLink(i))
-		if not SellValue_TradeSkillProfits.VendorItems[itemID] then
-			return
-		end
-
-		local _, _, price, stackCount = GetMerchantItemInfo(i)
-		local pricePerItem = price / stackCount
-		if not contains(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrices, pricePerItem) then
-			table.insert(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrices, pricePerItem)
-			table.sort(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrices)
+		if SellValue_TradeSkillProfits.VendorItems[itemID] then
+			local _, _, price, stackCount = GetMerchantItemInfo(i)
+			local pricePerItem = price / stackCount
+			if not contains(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrices, pricePerItem) then
+				table.insert(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrices, pricePerItem)
+				table.sort(SellValue_TradeSkillProfits.VendorItems[itemID].BuyPrices)
+			end
 		end
 	end
 end
