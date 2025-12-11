@@ -261,18 +261,13 @@ function SellValue_TSP:AddonLoaded()
 end
 
 function SellValue_TSP:TradeSkillShow()
-	-- Expand all sub categories. Maybe 1.12 can just call ExpandAllTradeSkills(0) but not sure
-	for tradeSkillIndex = GetNumTradeSkills(), 1, -1 do
-		local _, type = GetTradeSkillInfo(tradeSkillIndex)
-		if type == "header" then
-			ExpandTradeSkillSubClass(tradeSkillIndex)
-		end
-	end
-
 	-- Iterate from the bottom as crafted reagents are often placed in the bottom.
 	for tradeSkillIndex = GetNumTradeSkills(), 1, -1 do
-		local craftedItemID, profitMin, profitMax = self:CalculateProfit(tradeSkillIndex)
-		self:SaveProfits(craftedItemID, profitMin, profitMax)
+		local _, type = GetTradeSkillInfo(tradeSkillIndex)
+		if type ~= "header" then
+			local craftedItemID, profitMin, profitMax = self:CalculateProfit(tradeSkillIndex)
+			self:SaveProfits(craftedItemID, profitMin, profitMax)
+		end
 	end
 end
 
