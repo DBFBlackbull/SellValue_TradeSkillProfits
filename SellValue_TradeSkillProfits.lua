@@ -25,6 +25,14 @@ function SellValue_TSP:Print(string)
 	DEFAULT_CHAT_FRAME:AddMessage(GOLD_COLOR_CODE.."[SellValue_TSP]: ".. FONT_COLOR_CODE_CLOSE .. tostring(string))
 end
 
+local function printNow(string)
+	SellValue_TSP:Print(string)
+end
+
+local function printLater(string)
+	SellValue_TSP.missingVendorValues[string] = true
+end
+
 local function moneyToGsc(money)
 	local gold = math.floor(math.abs(money) / COPPER_PER_GOLD)
 	local silver = math.floor(math.mod(math.abs(money), COPPER_PER_GOLD) / COPPER_PER_SILVER)
@@ -165,7 +173,7 @@ function SellValue_TSP:CalculateReagentValue(craftedItemID, tradeSkillIndex, rea
 	if vendorItem then
 		if table.getn(vendorItem.BuyPrices) == 0 then
 			local reagentName = GetTradeSkillReagentInfo(tradeSkillIndex, reagentIndex)
-			self:Print("Missing vendor buy price for "..reagentName..". Using 4x vendor sell price until a vendor is visited.")
+			self.missingVendorPriceFunc("Missing vendor buy price for "..reagentName..". Using 4x vendor sell price until a vendor is visited.")
 			return reagentVendorValue * 4, reagentVendorValue * 4
 		end
 
@@ -224,6 +232,8 @@ function SellValue_TSP:HookTooltip()
 			return
 		end
 
+		self.missingVendorPriceFunc = printNow
+
 		-- the crafted item. Calculate profit
 		local craftedItemID, profitMin, profitMax = self:CalculateProfit(tradeSkillIndex)
 		self:SaveProfits(craftedItemID, profitMin, profitMax)
@@ -258,9 +268,14 @@ function SellValue_TSP:AddonLoaded()
 
 	self:InitializeDB()
 	self:HookTooltip()
+	self.missingVendorValues = {}
+	self.missingVendorPriceFunc = printLater
 end
 
 function SellValue_TSP:TradeSkillShow()
+	self.missingVendorValues = {}
+	self.missingVendorPriceFunc = printLater
+
 	-- Iterate from the bottom as crafted reagents are often placed in the bottom.
 	for tradeSkillIndex = GetNumTradeSkills(), 1, -1 do
 		local _, type = GetTradeSkillInfo(tradeSkillIndex)
@@ -268,6 +283,10 @@ function SellValue_TSP:TradeSkillShow()
 			local craftedItemID, profitMin, profitMax = self:CalculateProfit(tradeSkillIndex)
 			self:SaveProfits(craftedItemID, profitMin, profitMax)
 		end
+	end
+
+	for key, _ in pairs(self.missingVendorValues) do
+		self:Print(key)
 	end
 end
 
